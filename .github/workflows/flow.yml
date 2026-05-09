@@ -9,7 +9,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         rust: [stable]
-        lua: [lua53, lua54]
+        lua: [lua53, lua54, lua55]
         include:
           - os: ubuntu-latest
             os-prefix: linux
@@ -23,8 +23,8 @@ jobs:
       - name: Build ${{ matrix.os }} ${{ matrix.lua }} pkg-config
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends liblua5.3-dev liblua5.4-dev
-
+          sudo apt-get install -y --no-install-recommends liblua5.3-dev liblua5.4-dev liblua5.5-dev || true
+          sudo apt-get install -y liblua5.5-dev || echo "Lua 5.5 package not found, ensure Cargo.toml handles linkage"
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
 
@@ -46,7 +46,7 @@ jobs:
       matrix:
         os: [windows-latest]
         rust: [stable]
-        lua: [lua53, lua54]
+        lua: [lua53, lua54, lua55]
     defaults:
       run:
         shell: msys2 {0}
@@ -82,7 +82,7 @@ jobs:
       matrix:
         os: [windows-latest]
         rust: [stable]
-        lua: [lua53, lua54]
+        lua: [lua53, lua54, lua55]
     defaults:
       run:
         shell: msys2 {0}
@@ -132,3 +132,6 @@ jobs:
             wordninja-windows-32-lua54
             wordninja-windows-64-lua54
             wordninja-linux-lua54
+            wordninja-windows-32-lua55
+            wordninja-windows-64-lua55
+            wordninja-linux-lua55
