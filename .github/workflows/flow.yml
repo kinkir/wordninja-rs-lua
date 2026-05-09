@@ -171,9 +171,9 @@ jobs:
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "latest"
-          prerelease: false
+          prerelease: true
           title: "Wordninja & Lua core Final Builds"
           files: |
             wordninja-linux-*/*.so
-            wordninja-windows-32-*/*.dll
-            wordninja-windows-64-*/*.dll
+            wordninja-win32-*/*.dll
+            wordninja-win64-*/*.dll
