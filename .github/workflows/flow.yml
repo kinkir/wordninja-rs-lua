@@ -165,19 +165,21 @@ jobs:
           name: wordninja-windows-64-${{ matrix.lua }}
           path: wordninja_windows_64_${{ matrix.lua }}.dll
 
-  # ==========================================
-  # 4. 自动发布任务
+# ==========================================
+  # 4. 发布任务 (通过 permissions 修复)
   # ==========================================
   release-latest:
     needs: [build-latest-linux, build-latest-win32, build-latest-win64]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
-      - uses: "marvinpinto/action-automatic-releases@latest"
+      - name: Automatic Release
+        uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "latest"
           prerelease: true
+          title: "Wordninja Final Builds"
           files: |
             wordninja-linux-*/wordninja_linux_lua*.so
             wordninja-windows-32-*/wordninja_windows_32_lua*.dll
