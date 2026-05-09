@@ -25,7 +25,6 @@ jobs:
         run: |
           sudo apt-get update
           if [[ "${{ matrix.lua }}" == "lua55" ]]; then
-            echo "Building Lua 5.5 from source..."
             curl -L https://www.lua.org/ftp/lua-5.5.0.tar.gz | tar xz
             cd lua-5.5.0
             make linux MYCFLAGS="-fPIC"
@@ -52,7 +51,7 @@ jobs:
           path: wordninja_linux_${{ matrix.lua }}.so
 
   # ==========================================
-  # 2. Windows 32位 构建任务 (修正 Git 与 SSL)
+  # 2. Windows 32位 构建任务 (修正 Git 与 SSL, 增加目录创建)
   # ==========================================
   build-latest-win32:
     runs-on: windows-latest
@@ -61,14 +60,13 @@ jobs:
         rust: [stable]
         lua: [lua53, lua54, lua55]
     env:
-      # 核心修复：强制使用系统 Git 命令行
       CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
       - uses: actions/checkout@v4
       - uses: hecrj/setup-rust-action@v2
         with:
           rust-version: ${{ matrix.rust }}
-          targets: i686-pc-windows-gnu # 显式添加 32 位目标
+          targets: i686-pc-windows-gnu
       
       - uses: msys2/setup-msys2@v2
         with:
@@ -89,6 +87,8 @@ jobs:
             curl -L https://www.lua.org/ftp/lua-5.5.0.tar.gz | tar xz
             cd lua-5.5.0
             make mingw
+            # 💡 关键修正：确保目录存在
+            mkdir -p /usr/local/bin /usr/local/lib /usr/local/include
             cp src/lua55.dll /usr/local/bin/
             cp src/liblua.a /usr/local/lib/
             cp src/*.h /usr/local/include/
@@ -109,7 +109,7 @@ jobs:
           path: wordninja_windows_32_${{ matrix.lua }}.dll
 
   # ==========================================
-  # 3. Windows 64位 构建任务 (修正 Git 与 SSL)
+  # 3. Windows 64位 构建任务 (修正 Git 与 SSL, 增加目录创建)
   # ==========================================
   build-latest-win64:
     runs-on: windows-latest
@@ -144,6 +144,8 @@ jobs:
             curl -L https://www.lua.org/ftp/lua-5.5.0.tar.gz | tar xz
             cd lua-5.5.0
             make mingw
+            # 💡 关键修正：确保目录存在
+            mkdir -p /usr/local/bin /usr/local/lib /usr/local/include
             cp src/lua55.dll /usr/local/bin/
             cp src/liblua.a /usr/local/lib/
             cp src/*.h /usr/local/include/
@@ -176,7 +178,6 @@ jobs:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "latest"
           prerelease: true
-          title: "Wordninja-RS-Lua Final Builds (5.3/5.4/5.5)"
           files: |
             wordninja-linux-*/wordninja_linux_lua*.so
             wordninja-windows-32-*/wordninja_windows_32_lua*.dll
