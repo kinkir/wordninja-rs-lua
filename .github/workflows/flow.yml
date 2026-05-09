@@ -26,9 +26,7 @@ jobs:
           sudo apt-get update
           if [[ "${{ matrix.lua }}" == "lua55" ]]; then
             curl -L https://www.lua.org/ftp/lua-5.5.0.tar.gz | tar xz
-            cd lua-5.5.0
-            make linux MYCFLAGS="-fPIC"
-            sudo make install
+            cd lua-5.5.0 && make linux MYCFLAGS="-fPIC" && sudo make install
             echo "LUA_LIB_DIR=/usr/local/lib" >> $GITHUB_ENV
             echo "LUA_INCLUDE_DIR=/usr/local/include" >> $GITHUB_ENV
             sudo ldconfig /usr/local/lib
@@ -51,7 +49,7 @@ jobs:
           path: wordninja_linux_${{ matrix.lua }}.so
 
   # ==========================================
-  # 2. Windows 32位 构建任务 (修正 Git 与 SSL, 增加目录创建)
+  # 2. Windows 32位 构建任务 (修正 Git 与 SSL, 增加目录创建，抓取 lua5x.dll)
   # ==========================================
   build-latest-win32:
     runs-on: windows-latest
@@ -72,44 +70,42 @@ jobs:
         with:
           msystem: MINGW32
           path-type: inherit
-          install: >-
-            git 
-            make
-            mingw-w64-i686-gcc
-            mingw-w64-i686-pkg-config
-            mingw-w64-i686-lua
-            mingw-w64-i686-lua53
+          install: git make mingw-w64-i686-gcc mingw-w64-i686-pkg-config mingw-w64-i686-lua mingw-w64-i686-lua53
 
-      - name: Build Lua 5.5 for Win32
+      - name: Build Lua 5.5 for Win32 & Extract DLL
         shell: msys2 {0}
         run: |
+          mkdir -p build_assets
           if [[ "${{ matrix.lua }}" == "lua55" ]]; then
             curl -L https://www.lua.org/ftp/lua-5.5.0.tar.gz | tar xz
-            cd lua-5.5.0
-            make mingw
-            # 💡 关键修正：确保目录存在
-            mkdir -p /usr/local/bin /usr/local/lib /usr/local/include
-            cp src/lua55.dll /usr/local/bin/
-            cp src/liblua.a /usr/local/lib/
-            cp src/*.h /usr/local/include/
+            
+            cd lua-5.5.0 && make mingw && mkdir -p /usr/local/bin /usr/local/lib /usr/local/include
+            cp src/lua55.dll /usr/local/bin/ && cp src/liblua.a /usr/local/lib/ && cp src/*.h /usr/local/include/
+            cp src/lua55.dll ../build_assets/lua55_win32.dll
+            
             echo "LUA_LIB_DIR=/usr/local/lib" >> $GITHUB_ENV
             echo "LUA_INCLUDE_DIR=/usr/local/include" >> $GITHUB_ENV
+          else
+            # 抓取 MSYS2 自带的 DLL
+            LUA_DLL_NAME="${{ matrix.lua == 'lua53' && 'lua53.dll' || 'lua54.dll' }}"
+            cp /mingw32/bin/${LUA_DLL_NAME} build_assets/${LUA_DLL_NAME/%.dll/_win32.dll}
           fi
 
       - name: Build Win32
         shell: msys2 {0}
         run: cargo build --release --features "${{ matrix.lua }}" --target i686-pc-windows-gnu
 
-      - name: Rename and Upload
+      - name: Finalize Assets
         shell: bash
-        run: mv target/i686-pc-windows-gnu/release/wordninja_rs_lua.dll wordninja_windows_32_${{ matrix.lua }}.dll
+        run: |
+          cp target/i686-pc-windows-gnu/release/wordninja_rs_lua.dll build_assets/wordninja_windows_32_${{ matrix.lua }}.dll
       - uses: actions/upload-artifact@v4
         with:
-          name: wordninja-windows-32-${{ matrix.lua }}
-          path: wordninja_windows_32_${{ matrix.lua }}.dll
+          name: wordninja-win32-${{ matrix.lua }}
+          path: build_assets/*
 
   # ==========================================
-  # 3. Windows 64位 构建任务 (修正 Git 与 SSL, 增加目录创建)
+  # 3. Windows 64位 构建任务 (修正 Git 与 SSL, 增加目录创建； 抓取 lua5x.dll)
   # ==========================================
   build-latest-win64:
     runs-on: windows-latest
@@ -129,44 +125,41 @@ jobs:
         with:
           msystem: MINGW64
           path-type: inherit
-          install: >-
-            git
-            make
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-pkg-config
-            mingw-w64-x86_64-lua
-            mingw-w64-x86_64-lua53
+          install: git make mingw-w64-x86_64-gcc mingw-w64-x86_64-pkg-config mingw-w64-x86_64-lua mingw-w64-x86_64-lua53
 
-      - name: Build Lua 5.5 for Win64
+      - name: Build Lua 5.5 for Win64 & Extract DLL
         shell: msys2 {0}
         run: |
+          mkdir -p build_assets
           if [[ "${{ matrix.lua }}" == "lua55" ]]; then
             curl -L https://www.lua.org/ftp/lua-5.5.0.tar.gz | tar xz
-            cd lua-5.5.0
-            make mingw
-            # 💡 关键修正：确保目录存在
-            mkdir -p /usr/local/bin /usr/local/lib /usr/local/include
-            cp src/lua55.dll /usr/local/bin/
-            cp src/liblua.a /usr/local/lib/
-            cp src/*.h /usr/local/include/
+            
+            cd lua-5.5.0 && make mingw && mkdir -p /usr/local/bin /usr/local/lib /usr/local/include
+            cp src/lua55.dll /usr/local/bin/ && cp src/liblua.a /usr/local/lib/ && cp src/*.h /usr/local/include/
+            cp src/lua55.dll ../build_assets/lua55_win64.dll
+            
             echo "LUA_LIB_DIR=/usr/local/lib" >> $GITHUB_ENV
             echo "LUA_INCLUDE_DIR=/usr/local/include" >> $GITHUB_ENV
+          else
+            LUA_DLL_NAME="${{ matrix.lua == 'lua53' && 'lua53.dll' || 'lua54.dll' }}"
+            cp /mingw64/bin/${LUA_DLL_NAME} build_assets/${LUA_DLL_NAME/%.dll/_win64.dll}
           fi
 
       - name: Build Win64
         shell: msys2 {0}
         run: cargo build --release --features "${{ matrix.lua }}"
 
-      - name: Rename and Upload
+      - name: Finalize Assets
         shell: bash
-        run: mv target/release/wordninja_rs_lua.dll wordninja_windows_64_${{ matrix.lua }}.dll
+        run: |
+          cp target/release/wordninja_rs_lua.dll build_assets/wordninja_windows_64_${{ matrix.lua }}.dll
       - uses: actions/upload-artifact@v4
         with:
-          name: wordninja-windows-64-${{ matrix.lua }}
-          path: wordninja_windows_64_${{ matrix.lua }}.dll
+          name: wordninja-win64-${{ matrix.lua }}
+          path: build_assets/*
 
 # ==========================================
-  # 4. 发布任务 (通过 permissions 修复)
+  # 4. 发布任务 (包含lua5x.dll)
   # ==========================================
   release-latest:
     needs: [build-latest-linux, build-latest-win32, build-latest-win64]
@@ -178,9 +171,9 @@ jobs:
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "latest"
-          prerelease: true
-          title: "Wordninja Final Builds"
+          prerelease: false
+          title: "Wordninja & Lua core Final Builds"
           files: |
-            wordninja-linux-*/wordninja_linux_lua*.so
-            wordninja-windows-32-*/wordninja_windows_32_lua*.dll
-            wordninja-windows-64-*/wordninja_windows_64_lua*.dll
+            wordninja-linux-*/*.so
+            wordninja-windows-32-*/*.dll
+            wordninja-windows-64-*/*.dll
