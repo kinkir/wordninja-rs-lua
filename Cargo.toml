@@ -1,9 +1,9 @@
 [package]
 name = "wordninja_rs_lua"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["BlindingDark <blindingdark@outlook.com>"]
 description = "Wordninja lua native module."
-edition = "2018"
+edition = "2026"
 repository = "https://github.com/BlindingDark/wordninja-rs-lua"
 homepage = "https://github.com/BlindingDark/wordninja-rs-lua"
 license = "MIT"
@@ -15,8 +15,8 @@ categories = ["algorithms", "lua", "text-processing"]
 lua55 = ["mlua/lua55"]
 lua54 = ["mlua/lua54"]
 lua53 = ["mlua/lua53"]
-lua52 = ["mlua/lua52"]
-lua51 = ["mlua/lua51"]
+# lua52 = ["mlua/lua52"]
+# lua51 = ["mlua/lua51"]
 luajit = ["mlua/luajit"]
 
 [dependencies]
