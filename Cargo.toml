@@ -23,6 +23,6 @@ luajit = ["mlua/luajit"]
 wordninja = "0.1"
 # 直接指向 git 仓库，这通常包含最新的 Lua 5.5 支持
 # mlua = { git = "https://github.com/khvzak/mlua", features = ["module"] }
-mlua = { version = "0.11", features = ["lua55", "vendored", "module"] }
+mlua = { version = "0.11", features = ["module"] }
 [lib]
 crate-type = ["cdylib"]
