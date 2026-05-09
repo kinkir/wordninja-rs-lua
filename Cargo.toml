@@ -1,9 +1,9 @@
 [package]
 name = "wordninja_rs_lua"
-version = "0.1.1"
+version = "0.1.0"
 authors = ["BlindingDark <blindingdark@outlook.com>"]
 description = "Wordninja lua native module."
-edition = "2026"
+edition = "2018"
 repository = "https://github.com/BlindingDark/wordninja-rs-lua"
 homepage = "https://github.com/BlindingDark/wordninja-rs-lua"
 license = "MIT"
