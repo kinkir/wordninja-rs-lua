@@ -6,18 +6,17 @@ on:
 name: Continuous integration
 
 jobs:
-  # --- Linux 构建任务 ---
+  # ==========================================
+  # 1. Linux 构建任务 (支持 Lua 5.3, 5.4, 5.5)
+  # ==========================================
   build-latest-linux:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         rust: [stable]
         lua: [lua53, lua54, lua55]
-        include:
-          - os-prefix: linux
-            ext: so
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v4
       - uses: hecrj/setup-rust-action@v2
         with:
           rust-version: ${{ matrix.rust }}
@@ -26,6 +25,7 @@ jobs:
         run: |
           sudo apt-get update
           if [[ "${{ matrix.lua }}" == "lua55" ]]; then
+            echo "Building Lua 5.5 from source..."
             curl -L https://www.lua.org/ftp/lua-5.5.0.tar.gz | tar xz
             cd lua-5.5.0
             make linux MYCFLAGS="-fPIC"
@@ -38,21 +38,22 @@ jobs:
             sudo apt-get install -y --no-install-recommends liblua${LUA_VER}-dev
           fi
 
-      - name: Build ${{ matrix.lua }} target
+      - name: Build Linux
         run: cargo build --release --features "${{ matrix.lua }}"
         env:
           LUA_LIB_DIR: ${{ env.LUA_LIB_DIR }}
           LUA_INCLUDE_DIR: ${{ env.LUA_INCLUDE_DIR }}
 
       - name: Rename and Upload
-        run: |
-          mv target/release/libwordninja_rs_lua.${{ matrix.ext }} wordninja_${{ matrix.os-prefix }}_${{ matrix.lua }}.so
+        run: mv target/release/libwordninja_rs_lua.so wordninja_linux_${{ matrix.lua }}.so
       - uses: actions/upload-artifact@v4
         with:
-          name: wordninja-${{ matrix.os-prefix }}-${{ matrix.lua }}
-          path: wordninja_${{ matrix.os-prefix }}_${{ matrix.lua }}.so
+          name: wordninja-linux-${{ matrix.lua }}
+          path: wordninja_linux_${{ matrix.lua }}.so
 
-  # --- Windows 32位 构建任务 ---
+  # ==========================================
+  # 2. Windows 32位 构建任务 (修正 Git 与 SSL)
+  # ==========================================
   build-latest-win32:
     runs-on: windows-latest
     strategy:
@@ -60,28 +61,56 @@ jobs:
         rust: [stable]
         lua: [lua53, lua54, lua55]
     env:
-      CARGO_NET_GIT_FETCH_WITH_CLI: true # 修复 Windows 下的 SSL 证书报错
-    defaults:
-      run:
-        shell: msys2 {0}
+      # 核心修复：强制使用系统 Git 命令行
+      CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
+      - uses: actions/checkout@v4
+      - uses: hecrj/setup-rust-action@v2
+        with:
+          rust-version: ${{ matrix.rust }}
+          targets: i686-pc-windows-gnu # 显式添加 32 位目标
+      
       - uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW32 # 指定 32 位环境
-      - uses: actions/checkout@master
-      - name: Install Rust and Lua (32-bit)
+          msystem: MINGW32
+          path-type: inherit
+          install: >-
+            git 
+            make
+            mingw-w64-i686-gcc
+            mingw-w64-i686-pkg-config
+            mingw-w64-i686-lua
+            mingw-w64-i686-lua53
+
+      - name: Build Lua 5.5 for Win32
+        shell: msys2 {0}
         run: |
-          pacman -S --noconfirm mingw-w64-i686-rust mingw-w64-i686-lua mingw-w64-i686-lua53 mingw-w64-i686-pkg-config
-      - name: Build windows 32
-        run: cargo build --release --features ${{ matrix.lua }}
+          if [[ "${{ matrix.lua }}" == "lua55" ]]; then
+            curl -L https://www.lua.org/ftp/lua-5.5.0.tar.gz | tar xz
+            cd lua-5.5.0
+            make mingw
+            cp src/lua55.dll /usr/local/bin/
+            cp src/liblua.a /usr/local/lib/
+            cp src/*.h /usr/local/include/
+            echo "LUA_LIB_DIR=/usr/local/lib" >> $GITHUB_ENV
+            echo "LUA_INCLUDE_DIR=/usr/local/include" >> $GITHUB_ENV
+          fi
+
+      - name: Build Win32
+        shell: msys2 {0}
+        run: cargo build --release --features "${{ matrix.lua }}" --target i686-pc-windows-gnu
+
       - name: Rename and Upload
-        run: mv target/release/wordninja_rs_lua.dll wordninja_windows_32_${{ matrix.lua }}.dll
+        shell: bash
+        run: mv target/i686-pc-windows-gnu/release/wordninja_rs_lua.dll wordninja_windows_32_${{ matrix.lua }}.dll
       - uses: actions/upload-artifact@v4
         with:
           name: wordninja-windows-32-${{ matrix.lua }}
           path: wordninja_windows_32_${{ matrix.lua }}.dll
 
-  # --- Windows 64位 构建任务 ---
+  # ==========================================
+  # 3. Windows 64位 构建任务 (修正 Git 与 SSL)
+  # ==========================================
   build-latest-win64:
     runs-on: windows-latest
     strategy:
@@ -89,28 +118,54 @@ jobs:
         rust: [stable]
         lua: [lua53, lua54, lua55]
     env:
-      CARGO_NET_GIT_FETCH_WITH_CLI: true # 修复 SSL 报错
-    defaults:
-      run:
-        shell: msys2 {0}
+      CARGO_NET_GIT_FETCH_WITH_CLI: true
     steps:
+      - uses: actions/checkout@v4
+      - uses: hecrj/setup-rust-action@v2
+        with:
+          rust-version: ${{ matrix.rust }}
+      
       - uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64 # 指定 64 位环境
-      - uses: actions/checkout@master
-      - name: Install Rust and Lua (64-bit)
+          msystem: MINGW64
+          path-type: inherit
+          install: >-
+            git
+            make
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-lua
+            mingw-w64-x86_64-lua53
+
+      - name: Build Lua 5.5 for Win64
+        shell: msys2 {0}
         run: |
-          pacman -S --noconfirm mingw-w64-x86_64-rust mingw-w64-x86_64-lua mingw-w64-x86_64-lua53 mingw-w64-x86_64-pkg-config
-      - name: Build windows 64
-        run: cargo build --release --features ${{ matrix.lua }}
+          if [[ "${{ matrix.lua }}" == "lua55" ]]; then
+            curl -L https://www.lua.org/ftp/lua-5.5.0.tar.gz | tar xz
+            cd lua-5.5.0
+            make mingw
+            cp src/lua55.dll /usr/local/bin/
+            cp src/liblua.a /usr/local/lib/
+            cp src/*.h /usr/local/include/
+            echo "LUA_LIB_DIR=/usr/local/lib" >> $GITHUB_ENV
+            echo "LUA_INCLUDE_DIR=/usr/local/include" >> $GITHUB_ENV
+          fi
+
+      - name: Build Win64
+        shell: msys2 {0}
+        run: cargo build --release --features "${{ matrix.lua }}"
+
       - name: Rename and Upload
+        shell: bash
         run: mv target/release/wordninja_rs_lua.dll wordninja_windows_64_${{ matrix.lua }}.dll
       - uses: actions/upload-artifact@v4
         with:
           name: wordninja-windows-64-${{ matrix.lua }}
           path: wordninja_windows_64_${{ matrix.lua }}.dll
 
-  # --- 发布任务 ---
+  # ==========================================
+  # 4. 自动发布任务
+  # ==========================================
   release-latest:
     needs: [build-latest-linux, build-latest-win32, build-latest-win64]
     runs-on: ubuntu-latest
@@ -121,7 +176,8 @@ jobs:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "latest"
           prerelease: true
+          title: "Wordninja-RS-Lua Final Builds (5.3/5.4/5.5)"
           files: |
-            wordninja-windows-32-lua*
-            wordninja-windows-64-lua*
-            wordninja-linux-lua*
+            wordninja-linux-*/wordninja_linux_lua*.so
+            wordninja-windows-32-*/wordninja_windows_32_lua*.dll
+            wordninja-windows-64-*/wordninja_windows_64_lua*.dll
